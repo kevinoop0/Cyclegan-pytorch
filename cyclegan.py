@@ -43,12 +43,12 @@ def train(opt):
     ])
     # Training data loader
     dataloader = DataLoader(
-        ImageDataset("./data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
-        batch_size=opt.batch_size, shuffle=True, num_workers=8, )
+        ImageDataset("../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
+        batch_size=opt.batch_size, shuffle=True, num_workers=8 )
     # Test data loader
     val_dataloader = DataLoader(
-        ImageDataset("./data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
-        batch_size=5, shuffle=True, num_workers=1, )
+        ImageDataset("../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
+        batch_size=5, shuffle=True, num_workers=1 )
     # Optimizers
     optimizer_G = torch.optim.Adam(itertools.chain(G_AB.parameters(), G_BA.parameters()), lr=opt.lr, betas=(0.5, 0.999))
     optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=opt.lr, betas=(0.5, 0.999))
@@ -68,11 +68,11 @@ def train(opt):
     for epoch in range(opt.epochs):
         for i, batch in enumerate(dataloader):
             # Set model input
-            real_A = Variable(batch["A"].type(Tensor))
-            real_B = Variable(batch["B"].type(Tensor))
+            real_A = batch["A"].type(Tensor)
+            real_B = batch["B"].type(Tensor)
             # Adversarial ground truths
-            valid = Variable(Tensor(np.ones((real_A.size(0), *D_A.output_shape))), requires_grad=False)
-            fake = Variable(Tensor(np.zeros((real_A.size(0), *D_A.output_shape))), requires_grad=False)
+            real = Tensor(np.ones((real_A.size(0), *D_A.output_shape)))
+            fake = Tensor(np.zeros((real_A.size(0), *D_A.output_shape)))
             # ------------------
             #  Train Generators
             # ------------------
@@ -84,9 +84,9 @@ def train(opt):
             loss_identity = (loss_id_A + loss_id_B) / 2
             # GAN loss
             fake_B = G_AB(real_A)
-            loss_GAN_AB = criterion_GAN(D_B(fake_B), valid)
+            loss_GAN_AB = criterion_GAN(D_B(fake_B), real)
             fake_A = G_BA(real_B)
-            loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
+            loss_GAN_BA = criterion_GAN(D_A(fake_A), real)
             loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
             # Cycle loss
             recov_A = G_BA(fake_B)
@@ -103,7 +103,7 @@ def train(opt):
             # -----------------------
             optimizer_D_A.zero_grad()
             # Real loss
-            loss_real = criterion_GAN(D_A(real_A), valid)
+            loss_real = criterion_GAN(D_A(real_A), real)
             # Fake loss (on batch of previously generated samples)
             fake_A_ = fake_A_buffer.push_and_pop(fake_A)
             loss_fake = criterion_GAN(D_A(fake_A_.detach()), fake)
@@ -117,7 +117,7 @@ def train(opt):
             # -----------------------
             optimizer_D_B.zero_grad()
             # Real loss
-            loss_real = criterion_GAN(D_B(real_B), valid)
+            loss_real = criterion_GAN(D_B(real_B), real)
             # Fake loss (on batch of previously generated samples)
             fake_B_ = fake_B_buffer.push_and_pop(fake_B)
             loss_fake = criterion_GAN(D_B(fake_B_.detach()), fake)
@@ -143,7 +143,7 @@ def train(opt):
                 # sample_images(batches_done)
                 imgs = next(iter(val_dataloader))
                 G_AB.eval(),G_BA.eval()
-                real_A, real_B = Variable(imgs["A"].type(Tensor)), Variable(imgs["B"].type(Tensor))
+                real_A, real_B = imgs["A"].type(Tensor), imgs["B"].type(Tensor)
                 fake_A, fake_B = G_BA(real_B), G_AB(real_A)
                 # Arange images along x-axis
                 real_A = make_grid(real_A, nrow=5, normalize=True)
